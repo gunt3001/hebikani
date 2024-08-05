@@ -1267,16 +1267,17 @@ class ReviewSession(Session):
                 f"- {correct_rate}:\n",
             )
             print(question.subject.characters + "\n")
-            answer_type = None
 
             """We use a loop in case the user answers is not wrong but not acceptable
 
             E.g: the question asks for the kunyomi but we wrote the onyomi.
             We do not want to fail the user because of this. It is not a mistake.
             """
-            while answer_type is None or answer_type == AnswerType.INEXACT:
+            while True:
                 answer_type = self.ask_answer(question)
-                self.process_answer(question, answer_type)
+                should_retry = self.process_answer(question, answer_type)
+                if not should_retry:
+                    break
 
             self.process_subject(question.subject)
 
@@ -1291,9 +1292,16 @@ class ReviewSession(Session):
         Args:
             question (Question): The question.
             answer_type (AnswerType): The answer type.
+
+        Returns:
+            bool: Whether to retry the question.
         """
+        # If the user answers blank, we repeat the question
+        if answer_type is None:
+            return True
+
         # If the user answers correctly, we remove the card from the deck
-        if answer_type == AnswerType.CORRECT:
+        elif answer_type == AnswerType.CORRECT:
             print("\nCorrect!")
             self.nb_correct_answers += 1
 
@@ -1325,34 +1333,31 @@ class ReviewSession(Session):
                 "\nTry again. We are looking for the",
                 f"{question.primary.type}.\n",
             )
+            return True
+
         # If the user answers incorrectly, we show the correct answer
         else:
+            print("\nWrong !", end=" ")
+            # If double-check is enabled, don't show the answer but ask the user to retry
+            if self.client.options.double_check:
+                retrying = input("Do you want to retry? [Y/n] ")
+                if retrying not in ["n", "N"]:
+                    return True
+
             print(
-                "\nWrong ! The correct answer is:",
+                "The correct answer is:",
                 question.answer_values,
             )
 
-            if (
-                question.question_type == QuestionType.MEANING
-                and self.client.options.double_check
-            ):
-                time.sleep(0.5)
-                answer_was_correct = input("My answer was correct [y/N] ")
-            else:
-                answer_was_correct = "N"
+            self.nb_incorrect_answers += 1
+            self.queue.shuffle()
+            # Add the question at the end of the queue
+            # So we don't have it twice in a row.
+            self.queue.append(question)
+            if self.client.options.display_mnemonics:
+                print(f"\nMnemonic: {wanikani_tag_to_color(question.mnemonic)}")
 
-            if answer_was_correct not in ["y", "Y"]:
-                self.nb_incorrect_answers += 1
-                self.queue.shuffle()
-                # Add the question at the end of the queue
-                # So we don't have it twice in a row.
-                self.queue.append(question)
-                if self.client.options.display_mnemonics:
-                    print(f"\nMnemonic: {wanikani_tag_to_color(question.mnemonic)}")
-            else:
-                print("Question was changed to correct")
-                self.nb_correct_answers += 1
-                question.solved = True
+        return False
 
     def process_subject(self, subject: Subject):
         """Process the subject. Set it as solved if the user answered
@@ -1722,7 +1727,7 @@ def main():
     parser.add_argument("--mnemonics", action="store_true", default=False, help=text)
 
     text = (
-        "Give you the chance the answer as correct for meaning (only). (default: False)"
+        "Give you the chance to retry incorrect answer. (default: False)"
     )
 
     parser.add_argument(
