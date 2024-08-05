@@ -1490,7 +1490,7 @@ class LessonSession(Session):
 
         nb_lessons = len(self.subjects)
         nb_completed_lessons = 0
-        batches = chunks(self.subjects, 3)
+        batches = chunks(self.subjects, 5)
 
         for batch in batches:
             for subject in batch:
