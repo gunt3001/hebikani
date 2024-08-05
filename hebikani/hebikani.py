@@ -1338,6 +1338,7 @@ class ReviewSession(Session):
         # If the user answers incorrectly, we show the correct answer
         else:
             print("\nWrong !", end=" ")
+
             # If double-check is enabled, don't show the answer but ask the user to retry
             if self.client.options.double_check:
                 retrying = input("Do you want to retry? [Y/n] ")
@@ -1349,13 +1350,27 @@ class ReviewSession(Session):
                 question.answer_values,
             )
 
-            self.nb_incorrect_answers += 1
-            self.queue.shuffle()
-            # Add the question at the end of the queue
-            # So we don't have it twice in a row.
-            self.queue.append(question)
-            if self.client.options.display_mnemonics:
-                print(f"\nMnemonic: {wanikani_tag_to_color(question.mnemonic)}")
+            if (
+                question.question_type == QuestionType.MEANING
+                and self.client.options.double_check
+            ):
+                time.sleep(0.5)
+                answer_was_correct = input("My answer was correct [y/N] ")
+            else:
+                answer_was_correct = "N"
+
+            if answer_was_correct not in ["y", "Y"]:
+                self.nb_incorrect_answers += 1
+                self.queue.shuffle()
+                # Add the question at the end of the queue
+                # So we don't have it twice in a row.
+                self.queue.append(question)
+                if self.client.options.display_mnemonics:
+                    print(f"\nMnemonic: {wanikani_tag_to_color(question.mnemonic)}")
+            else:
+                print("Question was changed to correct")
+                self.nb_correct_answers += 1
+                question.solved = True
 
         return False
 
@@ -1727,7 +1742,8 @@ def main():
     parser.add_argument("--mnemonics", action="store_true", default=False, help=text)
 
     text = (
-        "Give you the chance to retry incorrect answer. (default: False)"
+        "Give you the chance to retry incorrect answers, "
+        "or mark answer as correct (for meaning only). (default: False)"
     )
 
     parser.add_argument(
