@@ -786,6 +786,8 @@ class ReviewUpdate:
             request_data = api_request(
                 HTTPMethod.POST, "reviews", self.client.api_key, data
             )
+        else:
+            print(f"[dry-run] reviews update: {data}")
 
         return request_data
 
@@ -817,6 +819,8 @@ class AssignmentUpdate:
                 f"assignments/{str(self.assignment_id)}/start",
                 self.client.api_key,
             )
+        else:
+            print(f"[dry-run] assignment start: {self.assignment_id}")
 
 
 class Subject(APIObject):
