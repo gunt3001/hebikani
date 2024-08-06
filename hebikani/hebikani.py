@@ -1275,11 +1275,10 @@ class ReviewSession(Session):
             E.g: the question asks for the kunyomi but we wrote the onyomi.
             We do not want to fail the user because of this. It is not a mistake.
             """
-            while True:
+            should_retry = True
+            while should_retry:
                 answer_type = self.ask_answer(question)
                 should_retry = self.process_answer(question, answer_type)
-                if not should_retry:
-                    break
 
             self.process_subject(question.subject)
 
