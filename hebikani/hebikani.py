@@ -786,10 +786,34 @@ class ReviewUpdate:
             request_data = api_request(
                 HTTPMethod.POST, "reviews", self.client.api_key, data
             )
+            self.print_srs_update(request_data)
         else:
             print(f"[dry-run] reviews update: {data}")
 
         return request_data
+
+    def print_srs_update(self, reviews_data):
+        """Print the SRS stage changes after review submission.
+        """
+
+        # Report SRS stage changes
+        srs_start = reviews_data["data"]["starting_srs_stage"]
+        srs_end = reviews_data["data"]["ending_srs_stage"]
+        srs_stages = [
+            "Apprentice 1",
+            "Apprentice 2",
+            "Apprentice 3",
+            "Apprentice 4",
+            "Guru 1",
+            "Guru 2",
+            "Master",
+            "Enlightened",
+            "Burned"
+        ]
+        if srs_end > srs_start:
+            print(Fore.GREEN + srs_stages[srs_start - 1] + " > " + srs_stages[srs_end - 1] + Fore.RESET)
+        else:
+            print(Fore.RED + srs_stages[srs_start - 1] + " > " + srs_stages[srs_end - 1] + Fore.RESET)
 
 
 class AssignmentUpdate:
