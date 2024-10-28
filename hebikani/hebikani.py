@@ -1228,6 +1228,167 @@ class QuestionQueue(list):
         self.nb_session_subjects = i
         self.shuffle()
 
+class LessonInterface:
+    """The lesson interface for navigating a subject's meaning, reading, context, etc."""
+
+    def show(self, session: Session, subject: Subject):
+        """Show the subjects to the user with a nice CLI interface.
+
+        Args:
+            session (Session): The session.
+            subject (Subject): The subject.
+        """
+        tab_index = 0
+        while True:
+            clear_terminal()
+            print(
+                f"{subject.object.capitalize().replace('_', ' ')}:"
+                f"\n\n{subject.characters}\n"
+            )
+            tabs = ["composition", "meaning", "reading", "context"]
+            if (
+                    subject.object == SubjectObject.VOCABULARY
+                    and not session.client.options.silent
+            ):
+                # Pre download audio
+                session.select_audio(subject.audios).download()
+            if subject.object == SubjectObject.RADICAL:
+                tabs = ["meaning"]
+            elif subject.object == SubjectObject.KANJI:
+                tabs = ["composition", "meaning", "reading"]
+            elif subject.object == SubjectObject.KANA_VOCABULARY:
+                tabs = ["meaning"]
+
+            print(self.beautify_tabs_display(tabs, tab_index))
+            print("\n")
+            if tabs[tab_index] == "meaning":
+                print(self.tab_meaning(subject))
+            elif tabs[tab_index] == "reading":
+                print(self.tab_reading(session, subject))
+            elif tabs[tab_index] == "context":
+                print(self.tab_context(subject))
+            elif tabs[tab_index] == "composition":
+                print(self.tab_composition(session.client, subject))
+
+            print("\nPress directional keys to navigate the tabs.")
+            key = None
+
+            # Only accept valid keys
+            while key not in [10, 67, 68]:
+                chr = getch(use_raw_input=False)
+                key = ord(chr)
+            if key == 67 or key == 10:  # Right
+                # sys.stdout.write("\n")
+                tab_index += 1
+            elif key == 68:  # Left
+                # sys.stdout.write("\n")
+                tab_index -= 1
+
+            if tab_index < 0:
+                tab_index = 0
+            elif tab_index > len(tabs) - 1:
+                # Go to next subject
+                break
+
+    def tab_composition(self, client: Client, subject: Subject) -> str:
+        """Show the composition tab.
+
+        Args:
+            client (Client): The client.
+            subject (Subject): The subject.
+
+        Returns:
+            str: The tab content.
+        """
+        res = ""
+        if subject.component_subject_ids:
+            subjects = client._subject_per_ids(subject.component_subject_ids)
+            res = (
+                    f"This {subject.object.replace('_', ' ')} is made of "
+                    + f"{len(subjects)} {subjects[0].object}"
+                    + ":\n"
+                    + "\n".join(
+                f"- {s.characters}: {s.meanings.primary.value}" for s in subjects
+            )
+            )
+
+        return res
+
+    def tab_meaning(self, subject: Subject) -> str:
+        """Show the meaning tab.
+
+        Args:
+            subject (Subject): The subject.
+
+        Returns:
+            str: The tab content.
+        """
+        return (
+                subject.meanings.answer_values
+                + "\n\n"
+                + wanikani_tag_to_color(subject.meaning_mnemonic)
+        )
+
+    def tab_reading(self, session: Session, subject: Subject) -> str:
+        """Show the reading tab.
+
+        Args:
+            session (Session): The session.
+            subject (Subject): The subject.
+
+        Returns:
+            str: The tab content.
+        """
+        if subject.audios and not session.client.options.silent:
+            audio = session.select_audio(subject.audios)
+            audio.play()
+            session.last_audio_played = audio
+
+        return (
+                subject.readings.answer_values
+                + "\n\n"
+                + wanikani_tag_to_color(subject.reading_mnemonic)
+        )
+
+    def tab_context(self, subject: Subject) -> str:
+        """Show the context tab.
+
+        Args:
+            subject (Subject): The subject.
+
+        Returns:
+            str: The tab content.
+        """
+        return "\n\n".join([f"{s.ja}\n{s.en}" for s in subject.context_sentences])
+
+    def beautify_tab_name(self, tab_name: str) -> str:
+        return tab_name.replace("_", " ").capitalize()
+
+    def beautify_tabs_display(self, tabs: List[str], tab_index: int) -> str:
+        """Beautify the tabs display.
+
+        Args:
+            tabs (List[str]): The tabs.
+            tab_index (int): The tab index.
+
+        Returns:
+            str: The beautified tabs display.
+        """
+        _tabs = []
+        for i, tab in enumerate(tabs):
+            name = self.beautify_tab_name(tab)
+            if i == tab_index:
+                name = Style.BRIGHT + Back.BLUE + Fore.WHITE + name
+
+            _tabs.append(name)
+
+        return (
+                (Style.RESET_ALL + Back.RESET + Fore.RESET + " > ").join(_tabs)
+                + Style.RESET_ALL
+                + Back.RESET
+                + Fore.RESET
+        )
+
 
 class ReviewSession(Session):
     """A review session."""
@@ -1307,6 +1468,7 @@ class ReviewSession(Session):
             self.process_subject(question.subject)
 
             self.ask_audio(question)
+            self.ask_subject_info(question.subject)
             input("\nPress enter to continue...")
 
         print("\n\nReviews are done!")
@@ -1489,6 +1651,18 @@ class ReviewSession(Session):
             audio.play()
             self.last_audio_played = audio
 
+    def ask_subject_info(self, subject: Subject):
+        """Ask the user if they want to see detailed information about the subject. (reading, meaning, mnemonics, etc.)
+
+        Args:
+            subject (Subject): The subject.
+        """
+        subject_kind = subject.object.replace("_", " ")
+        if input(f"\nWould you like to see more information about the {subject_kind}? [y/N] ") in [
+            "y",
+            "Y",
+        ]:
+            LessonInterface().show(self, subject)
 
 class LessonSession(Session):
     def start(self):
@@ -1518,7 +1692,7 @@ class LessonSession(Session):
         for batch in batches:
             for subject in batch:
                 clear_terminal()
-                self.lesson_interface(subject)
+                LessonInterface().show(self, subject)
 
             ReviewSession(self.client, batch, from_lesson=True).start()
             nb_completed_lessons += len(batch)
@@ -1526,154 +1700,6 @@ class LessonSession(Session):
 
             if nb_completed_lessons < nb_lessons:
                 input("\nPress enter to continue...")
-
-    def lesson_interface(self, subject: Subject):
-        """Show the subjects to the user with a nice CLI interface.
-
-        Args:
-            subject (Subject): The subject.
-        """
-        tab_index = 0
-        while True:
-            clear_terminal()
-            print(
-                f"{subject.object.capitalize().replace('_', ' ')}:"
-                f"\n\n{subject.characters}\n"
-            )
-            tabs = ["composition", "meaning", "reading", "context"]
-            if (
-                subject.object == SubjectObject.VOCABULARY
-                and not self.client.options.silent
-            ):
-                # Pre download audio
-                self.select_audio(subject.audios).download()
-            if subject.object == SubjectObject.RADICAL:
-                tabs = ["meaning"]
-            elif subject.object == SubjectObject.KANJI:
-                tabs = ["composition", "meaning", "reading"]
-            elif subject.object == SubjectObject.KANA_VOCABULARY:
-                tabs = ["meaning"]
-
-            print(self.beautify_tabs_display(tabs, tab_index))
-            print("\n")
-            print(getattr(self, f"tab_{tabs[tab_index]}")(subject))
-
-            print("\nPress directional keys to navigate the tabs.")
-            key = None
-
-            # Only accept valid keys
-            while key not in [10, 67, 68]:
-                chr = getch(use_raw_input=False)
-                key = ord(chr)
-            if key == 67 or key == 10:  # Right
-                # sys.stdout.write("\n")
-                tab_index += 1
-            elif key == 68:  # Left
-                # sys.stdout.write("\n")
-                tab_index -= 1
-
-            if tab_index < 0:
-                tab_index = 0
-            elif tab_index > len(tabs) - 1:
-                # Go to next subject
-                break
-
-    def tab_composition(self, subject: Subject) -> str:
-        """Show the composition tab.
-
-        Args:
-            subject (Subject): The subject.
-
-        Returns:
-            str: The tab content.
-        """
-        res = ""
-        if subject.component_subject_ids:
-            subjects = self.client._subject_per_ids(subject.component_subject_ids)
-            res = (
-                f"This {subject.object.replace('_', ' ')} is made of "
-                + f"{len(subjects)} {subjects[0].object}"
-                + ":\n"
-                + "\n".join(
-                    f"- {s.characters}: {s.meanings.primary.value}" for s in subjects
-                )
-            )
-
-        return res
-
-    def tab_meaning(self, subject: Subject) -> str:
-        """Show the meaning tab.
-
-        Args:
-            subject (Subject): The subject.
-
-        Returns:
-            str: The tab content.
-        """
-        return (
-            subject.meanings.answer_values
-            + "\n\n"
-            + wanikani_tag_to_color(subject.meaning_mnemonic)
-        )
-
-    def tab_reading(self, subject: Subject) -> str:
-        """Show the reading tab.
-
-        Args:
-            subject (Subject): The subject.
-
-        Returns:
-            str: The tab content.
-        """
-        if subject.audios and not self.client.options.silent:
-            audio = self.select_audio(subject.audios)
-            audio.play()
-            self.last_audio_played = audio
-
-        return (
-            subject.readings.answer_values
-            + "\n\n"
-            + wanikani_tag_to_color(subject.reading_mnemonic)
-        )
-
-    def tab_context(self, subject: Subject) -> str:
-        """Show the context tab.
-
-        Args:
-            subject (Subject): The subject.
-
-        Returns:
-            str: The tab content.
-        """
-        return "\n\n".join([f"{s.ja}\n{s.en}" for s in subject.context_sentences])
-
-    def beautify_tab_name(self, tab_name: str) -> str:
-        return tab_name.replace("_", " ").capitalize()
-
-    def beautify_tabs_display(self, tabs: List[str], tab_index: int) -> str:
-        """Beautify the tabs display.
-
-        Args:
-            tabs (List[str]): The tabs.
-            tab_index (int): The tab index.
-
-        Returns:
-            str: The beautified tabs display.
-        """
-        _tabs = []
-        for i, tab in enumerate(tabs):
-            name = self.beautify_tab_name(tab)
-            if i == tab_index:
-                name = Style.BRIGHT + Back.BLUE + Fore.WHITE + name
-
-            _tabs.append(name)
-
-        return (
-            (Style.RESET_ALL + Back.RESET + Fore.RESET + " > ").join(_tabs)
-            + Style.RESET_ALL
-            + Back.RESET
-            + Fore.RESET
-        )
 
 
 def main():

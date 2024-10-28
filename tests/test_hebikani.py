@@ -27,7 +27,7 @@ from hebikani.hebikani import (
     clear_terminal,
     range_int_type,
     utc_to_local,
-    wanikani_tag_to_color,
+    wanikani_tag_to_color, LessonInterface,
 )
 from hebikani.typing import (
     AnswerType,
@@ -620,18 +620,17 @@ def test_lesson_tab_composition(mock_subject_per_ids):
     """Test the tab composition display"""
     client = Client(API_KEY)
     subject = Subject(vocabulary_subject)
-    session = LessonSession(client, [subject])
-    assert session.tab_composition(subject) == (
+    lesson_interface = LessonInterface()
+    assert lesson_interface.tab_composition(client, subject) == (
         "This vocabulary is made of 1 kanji:\n- 一: one"
     )
 
 
 def test_lesson_tab_meaning():
     """Test the tab meaning display"""
-    client = Client(API_KEY)
     subject = Subject(vocabulary_subject)
-    session = LessonSession(client, [subject])
-    assert session.tab_meaning(subject) == (
+    lesson_interface = LessonInterface()
+    assert lesson_interface.tab_meaning(subject) == (
         "one\n\nAs is the case with most vocab words that consist "
         "of a single kanji, this vocab word has the same meaning as"
         " the kanji it parallels, which is \x1b[1m\x1b[37m\x1b[45mon"
@@ -645,7 +644,8 @@ def test_lesson_tab_reading(mock_play):
     client = Client(API_KEY)
     subject = Subject(vocabulary_subject)
     session = LessonSession(client, [subject])
-    assert session.tab_reading(subject) == (
+    lesson_interface = LessonInterface()
+    assert lesson_interface.tab_reading(session, subject) == (
         "いち\n\nWhen a vocab word is all alone and has no okurigana "
         "(hiragana attached to kanji) connected to it, it usually uses "
         "the kun'yomi reading. Numbers are an exception, however. When "
@@ -658,10 +658,9 @@ def test_lesson_tab_reading(mock_play):
 
 def test_lesson_tab_context():
     """Test the tab context display"""
-    client = Client(API_KEY)
     subject = Subject(vocabulary_subject)
-    session = LessonSession(client, [subject])
-    assert session.tab_context(subject) == (
+    lesson_interface = LessonInterface()
+    assert lesson_interface.tab_context(subject) == (
         "一ど、あいましょう。\nLet’s meet up once.\n\n"
         "一いはアメリカ人でした。\nFirst place was an American.\n\n"
         "ぼくはせかいで一ばんよわい。\nI’m the weakest man in the world."
@@ -670,20 +669,20 @@ def test_lesson_tab_context():
 
 def test_lesson_beautify_tab_name():
     """Test the lesson beautify name method"""
-    session = LessonSession(None, None)
-    assert session.beautify_tab_name("meaning") == "Meaning"
-    assert session.beautify_tab_name("reading") == "Reading"
-    assert session.beautify_tab_name("context_sentences") == "Context sentences"
+    lesson_interface = LessonInterface()
+    assert lesson_interface.beautify_tab_name("meaning") == "Meaning"
+    assert lesson_interface.beautify_tab_name("reading") == "Reading"
+    assert lesson_interface.beautify_tab_name("context_sentences") == "Context sentences"
 
 
 def test_beautify_tabs_display():
     """Test the beautify tabs display method"""
-    session = LessonSession(None, None)
-    assert session.beautify_tabs_display(["meaning", "reading", "context"], 1) == (
+    lesson_interface = LessonInterface()
+    assert lesson_interface.beautify_tabs_display(["meaning", "reading", "context"], 1) == (
         "Meaning\x1b[0m\x1b[49m\x1b[39m > \x1b[1m\x1b[44m\x1b[37m"
         "Reading\x1b[0m\x1b[49m\x1b[39m > Context\x1b[0m\x1b[49m\x1b[39m"
     )
-    assert session.beautify_tabs_display(["meaning", "reading", "context"], 2) == (
+    assert lesson_interface.beautify_tabs_display(["meaning", "reading", "context"], 2) == (
         "Meaning\x1b[0m\x1b[49m\x1b[39m > Reading\x1b[0m\x1b[49m\x1b[39m"
         " > \x1b[1m\x1b[44m\x1b[37mContext\x1b[0m\x1b[49m\x1b[39m"
     )
