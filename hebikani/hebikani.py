@@ -1643,8 +1643,7 @@ class ReviewSession(Session):
 
         while True:
             valid_keys = [10, 70, 102]
-            print("\n")
-            print("[F] - View subject info")
+            print("\n[F] - View subject info")
             if (
                 not client.options.silent
                 and question.subject.audios
