@@ -152,15 +152,15 @@ def wanikani_tag_to_color(text: str) -> str:
         str: The colorized text.
     """
     tag_colors = {
-        "kanji": Back.RED,
-        "vocabulary": Back.MAGENTA,
-        "radical": Back.BLUE,
-        "ja": Back.GREEN,
-        "reading": Back.CYAN,
-        "meaning": Back.CYAN,
+        "kanji": Fore.RED,
+        "vocabulary": Fore.MAGENTA,
+        "radical": Fore.BLUE,
+        "ja": Fore.GREEN,
+        "reading": Fore.CYAN,
+        "meaning": Fore.CYAN,
     }
-    for tag, bg_color in tag_colors.items():
-        text = text.replace(f"<{tag}>", Style.BRIGHT + Fore.WHITE + bg_color)
+    for tag, fg_color in tag_colors.items():
+        text = text.replace(f"<{tag}>", Style.BRIGHT + Back.BLACK + fg_color)
         text = text.replace(f"</{tag}>", Back.RESET + Fore.RESET + Style.RESET_ALL)
     return text
 
@@ -1378,7 +1378,7 @@ class LessonInterface:
         for i, tab in enumerate(tabs):
             name = self.beautify_tab_name(tab)
             if i == tab_index:
-                name = Style.BRIGHT + Back.BLUE + Fore.WHITE + name
+                name = Style.BRIGHT + Back.BLACK + Fore.BLUE + name
 
             _tabs.append(name)
 
