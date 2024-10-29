@@ -1467,9 +1467,15 @@ class ReviewSession(Session):
 
             self.process_subject(question.subject)
 
-            self.ask_audio(question)
-            self.ask_subject_info(question.subject)
-            input("\nPress enter to continue...")
+            # Play audio if needed
+            if (
+                not self.client.options.silent
+                and question.subject.audios
+                and question.question_type == QuestionType.READING
+                and self.client.options.autoplay
+            ):
+                self.play_audio(question)
+            self.show_post_subject_menu(self.client, question)
 
         print("\n\nReviews are done!")
 
@@ -1632,37 +1638,46 @@ class ReviewSession(Session):
         answer_type = question.solve(inputed_answer, self.client.options.hard_mode)
         return answer_type
 
-    def ask_audio(self, question: Question):
-        """Ask the user if they want to hear the audio.
+    def show_post_subject_menu(self, client: Client, question: Question):
+        """Show the menu after answering a question."""
+
+        while True:
+            valid_keys = [10, 70, 102]
+            print("\n")
+            print("[F] - View subject info")
+            if (
+                not client.options.silent
+                and question.subject.audios
+                and question.question_type == QuestionType.READING
+                and not client.options.autoplay
+            ):
+                print("[A] - Play audio")
+                valid_keys.append(65)
+                valid_keys.append(97)
+            print("[Enter] - Continue")
+
+            key = None
+            while key not in valid_keys:
+                chr = getch(use_raw_input=False)
+                key = ord(chr)
+            if key == 65 or key == 97:  # A
+                self.play_audio(question)
+            elif key == 70 or key == 102:  # F
+                LessonInterface().show(self, question.subject)
+            elif key == 10:
+                return
+
+    def play_audio(self, question: Question):
+        """Play the audio if needed
 
         Args:
             question (Question): The question.
         """
-        if (
-            not self.client.options.silent
-            and question.subject.audios
-            and question.question_type == QuestionType.READING
-            and (
-                self.client.options.autoplay
-                or input("\nWould you like to hear the audio? [y/N] ") in ["y", "Y"]
-            )
-        ):
-            audio = self.select_audio(question.subject.audios)
-            audio.play()
-            self.last_audio_played = audio
 
-    def ask_subject_info(self, subject: Subject):
-        """Ask the user if they want to see detailed information about the subject. (reading, meaning, mnemonics, etc.)
+        audio = self.select_audio(question.subject.audios)
+        audio.play()
+        self.last_audio_played = audio
 
-        Args:
-            subject (Subject): The subject.
-        """
-        subject_kind = subject.object.replace("_", " ")
-        if input(f"\nWould you like to see more information about the {subject_kind}? [y/N] ") in [
-            "y",
-            "Y",
-        ]:
-            LessonInterface().show(self, subject)
 
 class LessonSession(Session):
     def start(self):
